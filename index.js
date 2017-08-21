@@ -20,7 +20,7 @@ program
   .option('-c, --config <file>', 'Config file to load')
   .parse(process.argv);
 
-if (program.args.length === 0) {
+if (program.args.length === 0 || !program.output) {
   program.outputHelp();
   process.exit(1);
 }
@@ -62,7 +62,6 @@ inputs.forEach(file => {
         : `${file.replace(prefix, '')}${chalk.green.bold(
             ' -> '
           )}${outFile.replace(prefix, '')}`;
-      // log(`done: ${file}, ${outFile}, ${prefix}`);
 
       log(
         chalk.green('Finished ') +

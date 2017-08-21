@@ -7,8 +7,9 @@ const postcss = require('postcss');
 const discardDupes = require('postcss-discard-duplicates');
 const clean = require('postcss-clean');
 const commonDir = require('commondir');
+const request = require('request-promise-native');
 
-function getCSSFromHTML(html, rootDir) {
+function getCSSFromHTML(html, rootDir, cb) {
   const css = [];
   const urls = [];
 
@@ -21,12 +22,11 @@ function getCSSFromHTML(html, rootDir) {
           if (attribs.rel === 'stylesheet') {
             let href = attribs.href;
 
-            if (href.indexOf('http') === -1) {
+            if (!/^https?:/.test(href)) {
               href = path.join(rootDir, href);
               css.push(fs.readFileSync(href));
             } else {
-              //to-do: fetch stylesheets from external URL
-              urls.push(href);
+              css.push(request(href));
             }
           }
         }
@@ -46,7 +46,9 @@ function getCSSFromHTML(html, rootDir) {
   parser.write(html);
   parser.end();
 
-  return css.join('');
+  Promise.all(css).then(finishedCSS => {
+    cb(finishedCSS.join(''));
+  });
 }
 
 function stripTags(html) {
@@ -85,37 +87,39 @@ module.exports = function(file, outDir, config, cb) {
   let html = fs.readFileSync(file);
 
   // Get the CSS from the HTML
-  let css = getCSSFromHTML(html, config.root);
+  getCSSFromHTML(html, config.root, css => {
+    // Get rid of the CSS tags
+    html = stripTags(html);
 
-  // Get rid of the CSS tags
-  html = stripTags(html);
+    // Clean up the CSS!
+    cleanCSS(html, css, config, (err, cleanedCSS) => {
+      if (err) {
+        cb(err);
+      } else {
+        // Add our cleaned CSS to the HTML
+        html = injectCSS(html, cleanedCSS);
 
-  // Clean up the CSS!
-  cleanCSS(html, css, config, (err, cleanedCSS) => {
-    if (err) {
-      cb(err);
-    } else {
-      // Add our cleaned CSS to the HTML
-      html = injectCSS(html, cleanedCSS);
+        const prefix = commonDir([outDir, file]);
+        const outFile = path.resolve(
+          path.join(outDir, file.replace(prefix, ''))
+        );
 
-      const prefix = commonDir([outDir, file]);
-      const outFile = path.resolve(path.join(outDir, file.replace(prefix, '')));
+        outDir = path.dirname(outFile);
 
-      outDir = path.dirname(outFile);
+        fs.ensureDirSync(outDir);
 
-      fs.ensureDirSync(outDir);
+        const oldSize = Buffer.byteLength(css, 'utf8');
+        const newSize = Buffer.byteLength(cleanedCSS, 'utf8');
 
-      const oldSize = Buffer.byteLength(css, 'utf8');
-      const newSize = Buffer.byteLength(cleanedCSS, 'utf8');
+        const stats = {
+          oldSize: oldSize,
+          newSize: newSize,
+          percentage: Math.floor(100 - newSize / oldSize * 100) + '%'
+        };
 
-      const stats = {
-        oldSize: oldSize,
-        newSize: newSize,
-        percentage: Math.floor(100 - newSize / oldSize * 100) + '%'
-      };
-
-      // Write our HTML
-      fs.writeFile(outFile, html, () => cb(null, outFile, stats));
-    }
+        // Write our HTML
+        fs.writeFile(outFile, html, () => cb(null, outFile, stats));
+      }
+    });
   });
 };

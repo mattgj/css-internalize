@@ -1,7 +1,7 @@
 {
   "name": "css-internalize",
   "version": "0.0.1",
-  "description": "",
+  "description": "Tool to pull and clean CSS from an HTML file, and insert it back in the HTML head.",
   "main": "index.js",
   "directories": {
     "test": "test"
@@ -10,7 +10,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "internalize": "./index.js"
+    "css-internalize": "./index.js"
   },
   "author": "Matt Johnson <matt@debugroom.com>",
   "license": "MIT",
@@ -24,6 +24,7 @@
     "postcss": "^6.0.9",
     "postcss-clean": "^1.0.3",
     "postcss-discard-duplicates": "^2.1.0",
+    "request-promise-native": "^1.0.4",
     "uncss": "^0.15.0"
   }
 }
